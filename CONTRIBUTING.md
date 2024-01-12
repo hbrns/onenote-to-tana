@@ -31,7 +31,7 @@ Any contribution is appreciated! You might want to:
 * Code should work for Python 3.11+.
 * Test your code. <!-- by using nox (see below). -->
 * New features should be well documented using docstrings.
-* Check if the [README.md](README.md). <!-- or [readthedocs](../docs/source) documentation needs to be updated. -->
+* Check if the [README.md](README.md) <!-- or [readthedocs](../docs/source)  --> documentation needs to be updated.
 * Check spelling and grammar.
 
 ### Certificate of origin
