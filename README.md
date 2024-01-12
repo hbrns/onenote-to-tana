@@ -19,15 +19,22 @@ OneNote for Mac, iPad, iPhone, Android, and Web are currently not supported.
 
 Inline images are currently not support by the Tana Intermediate Format (TIF).
 Only image URL references are supported.
-Therefore images that are part of an OneNote page can not been imported.
-You may copy&paste an image into a Tana node after an import by hand as
+Therefore images that are part of an OneNote page can not be imported.
+You may _copy&paste_ an image into a Tana node after an import by hand as
 a workaround.
 
 ## Installation
 
-1. Install the requirements.
+1. Clone the repository
 
-    ```bash
+    ```sh
+    git clone https://github.com/hbrns/onenote-to-tana.git
+    cd onenote_to-tana
+    ```
+
+2. Install the requirements.
+
+    ```sh
     poetry install
     ```
 
