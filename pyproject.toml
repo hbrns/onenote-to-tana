@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "onenote-to-tana"
+version = "2024.01"
+description = "onenote-to-tana is a script that converts a OneNote Notebook into a JSON file ready for import into a Tana workspace."
+authors = ["Holger Behrens <holger.behrens@gmx.de>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+beautifulsoup4 = "^4.12.2"
+lxml = "^5.1.0"
+prompt-toolkit = "^3.0.43"
+pytz = "^2023.3.post1"
+pywin32 = "^306"
+snowflake-id = "^0.0.5"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
