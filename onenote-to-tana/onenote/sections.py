@@ -41,7 +41,7 @@ def select_section(sections: Dict[str, ElementTree.Element], section_name: str) 
     sections.pop("All", None)
     return selected_section, all_sections
 
-def ui_handle_sections(onenote_app: Any, sections: Dict[str, ElementTree.Element]):
+def ui_handle_sections(onenote_app: Any, sections: Dict[str, ElementTree.Element], outfile: str):
     print(f'Available section: {", ".join(sections.keys())}')
     selected_section, all_sections = select_section(sections, "notebooook")
     if not all_sections:
@@ -51,9 +51,9 @@ def ui_handle_sections(onenote_app: Any, sections: Dict[str, ElementTree.Element
         section_pages = get_pages(onenote_app, section)
         pages.update(section_pages)
     if all_sections:
-        handle_pages_all(onenote_app, pages)
+        handle_pages_all(onenote_app, pages, outfile)
     else:
-        ui_handle_pages(onenote_app, pages)
+        ui_handle_pages(onenote_app, pages, outfile)
 
 def ui_select_section(notebook: str, sections: Dict[str, ElementTree.Element]) -> Tuple[str, bool]:
     """

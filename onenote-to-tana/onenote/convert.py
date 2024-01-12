@@ -2,6 +2,7 @@ import json
 import locale
 import pytz
 import re
+import sys
 import time
 from bs4 import BeautifulSoup, Tag, NavigableString
 from datetime import datetime
@@ -88,7 +89,7 @@ def process_and_convert_table(tag: NavigableString) -> Tuple[int, str, list]:
 
 def process_and_convert_paragraph(tag: NavigableString) -> Tuple[int, str, str]:
     text = str()
-    language = tag.get('lang') or 'tlhIngan Hol'  # default: Klingon
+    language = tag.get('lang') or 'de_DE'  # default: Deutsches Deutsch
     for child in tag.children:
         text += process_child(child)
     text = compress_text(text)
@@ -473,7 +474,7 @@ def convert_onenote_page(html_file: str, html_images: Dict, summary: TanaInterme
     
     return summary, nodes, attributes, supertags
 
-def convert_pages_all(onenote_app: Any, pages: Dict) -> None:
+def convert_pages_all(onenote_app: Any, pages: Dict, outfile: str = None) -> None:
     import tempfile
     from onenote.pages import process_page
 
@@ -511,5 +512,11 @@ def convert_pages_all(onenote_app: Any, pages: Dict) -> None:
     tana_dictionary = TanaIntermediateFile(summary, nodes, attributes, supertags)
 
     # Convert dictionary to a JSON string and write the JSON data to a file
-    with open("../data/kalli.json", 'w') as tif_json_file:
-        json.dump(tana_dictionary.to_dict(), tif_json_file, indent=3)
+    if outfile:
+        try:
+            with open(outfile, 'w') as tif_json_file:
+                json.dump(tana_dictionary.to_dict(), tif_json_file, indent=3)
+        except IOError:
+            print(f"ERROR: Could not write to file: {outfile}")
+    else:
+        json.dump(tana_dictionary.to_dict(), sys.stdout, indent=3)

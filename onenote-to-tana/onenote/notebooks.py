@@ -30,7 +30,7 @@ def ui_select_notebook(notebooks: Dict[str, ElementTree.Element], all: Optional[
     notebooks.pop("All", None)
     return selected_notebook, all_notebooks
 
-def ui_handle_notebooks(onenote_app: Any, notebooks: Dict[str, ElementTree.Element]):
+def ui_handle_notebooks(onenote_app: Any, notebooks: Dict[str, ElementTree.Element], outfile: str):
     selected_notebook, all_notebooks = ui_select_notebook(notebooks, True)
     if not all_notebooks:
         notebooks = {selected_notebook: notebooks[selected_notebook]}
@@ -44,9 +44,9 @@ def ui_handle_notebooks(onenote_app: Any, notebooks: Dict[str, ElementTree.Eleme
         for section in sections.values():
             section_pages = get_pages(onenote_app, section)
             pages.update(section_pages)
-        handle_pages_all(onenote_app, pages)
+        handle_pages_all(onenote_app, pages, outfile)
     else:
-        ui_handle_sections(onenote_app, sections)
+        ui_handle_sections(onenote_app, sections, outfile)
 
 def find_notebooks(onenote_app: Any, onenote_elements: ElementTree.Element, notebooks_to_find: str) -> Tuple[Dict, Dict]:
     notebooks = get_notebooks(onenote_elements)

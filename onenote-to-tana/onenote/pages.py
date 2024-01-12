@@ -32,14 +32,14 @@ def select_page(pages: Dict[str, ElementTree.Element], section_name: str) -> Tup
     pages.pop("All", None)
     return selected_page, all_pages
 
-def ui_handle_pages(onenote_app: Any, pages: Dict[str, ElementTree.Element]):
+def ui_handle_pages(onenote_app: Any, pages: Dict[str, ElementTree.Element], outfile: str):
     print(f'Available pages: {", ".join(pages.keys())}')
     selected_page, all_pages = select_page(pages, "some section")
     if not all_pages:
         pages = {selected_page: pages[selected_page]}
     # for page in pages.values():
     #    process_page(onenote_app, page)
-    handle_pages_all(onenote_app, pages)
+    handle_pages_all(onenote_app, pages, outfile)
 
 def handle_pages(onenote_app: Any, section: ElementTree.Element, all_sections: bool):
     pages = get_pages(onenote_app, section)
@@ -115,6 +115,6 @@ def process_page(onenote_app: Any, directory: str, page: ElementTree.Element) ->
     # TODO: handle notebook_name, section_name, page_name, createdAt, and editedAt
     return html, images
 
-def handle_pages_all(onenote_app: Any, pages: Dict) -> None:
+def handle_pages_all(onenote_app: Any, pages: Dict, outfile: str) -> None:
     from onenote.convert import convert_pages_all
-    convert_pages_all(onenote_app, pages)
+    convert_pages_all(onenote_app, pages, outfile)
