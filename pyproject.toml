@@ -14,6 +14,9 @@ pytz = "^2023.3.post1"
 pywin32 = "^306"
 snowflake-id = "^0.0.5"
 
+[tool.poetry.group.dev.dependencies]
+licensecheck = "^2024"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
