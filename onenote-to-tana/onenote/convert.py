@@ -1,8 +1,11 @@
 import json
 import locale
+import os
 import pytz
 import re
+import shutil
 import sys
+import tempfile
 import time
 from bs4 import BeautifulSoup, Tag, NavigableString
 from datetime import datetime
@@ -12,6 +15,7 @@ from typing import Any, Dict, List, Tuple, Union
 # TIF - Tana Intermediate Format
 from tanatypes.tif import *
 
+DEBUG = False
 CHARSET = 'utf-8' 
 TIMEZONE = 'Etc/GMT+1'
 
@@ -475,7 +479,6 @@ def convert_onenote_page(html_file: str, html_images: Dict, summary: TanaInterme
     return summary, nodes, attributes, supertags
 
 def convert_pages_all(onenote_app: Any, pages: Dict, outfile: str = None) -> None:
-    import tempfile
     from onenote.pages import process_page
 
     # Create summary
@@ -489,14 +492,22 @@ def convert_pages_all(onenote_app: Any, pages: Dict, outfile: str = None) -> Non
     # Create nodes
     nodes = []
 
+    # Establish a directory on the file system to store temporary files in
+    if DEBUG:
+        directory_name = os.path.join(os.getcwd(), "data")
+        os.makedirs(directory_name, exist_ok=True)
+    else:
+        temp_dir = tempfile.TemporaryDirectory()
+        directory_name = temp_dir.name
+
     # Within a temporary directory publish the OneNote pages as MHT,
     # process the MHT to extract the HTML and images from it
     # and turn those into a collection of 'tanatypes'.
-    with tempfile.TemporaryDirectory() as temp_dir:
+    try:
         for page in pages.values():
             html_string, html_images = process_page(
                 onenote_app, 
-                temp_dir, 
+                directory_name, 
                 page
                 )
             summary, nodes, attributes, supertags = convert_onenote_page(
@@ -507,6 +518,10 @@ def convert_pages_all(onenote_app: Any, pages: Dict, outfile: str = None) -> Non
                 attributes, 
                 supertags
                 )
+    finally:
+        if not DEBUG:
+            # Clean up the TemporaryDirectory
+            temp_dir.cleanup()
 
     # Create a Tana Intermediate File dictionary
     tana_dictionary = TanaIntermediateFile(summary, nodes, attributes, supertags)
