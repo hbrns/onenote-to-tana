@@ -6,7 +6,7 @@ from xml.etree import ElementTree
 
 from onenote.notebooks import find_notebooks, get_notebooks, ui_handle_notebooks
 from onenote.sections import find_sections, get_sections, ui_handle_sections
-from onenote.pages import find_pages, ui_handle_pages, handle_pages_all
+from onenote.pages import find_pages, handle_pages_all, ui_handle_pages
 
 
 def ui_handle_elements(element_name: str, dictionary: Dict[str, ElementTree.Element], handler: Callable) -> bool:
@@ -44,8 +44,6 @@ if __name__ == "__main__":
         onenote_elements = ElementTree.fromstring(hierarchy)
 
         # first check for any arguments that narrow the search
-
-        # Now's Notebook, Me Myself and I, None
         if args.notebook:
             pages, notebooks = find_notebooks(onenote_app, onenote_elements, args.notebook)
             if not notebooks:
@@ -60,9 +58,6 @@ if __name__ == "__main__":
         else:
             notebooks = get_notebooks(onenote_elements)
 
-        # eDIY, Garten, Lernen, Konstruktion, Werkstatt, DIY Ideas, Unsortiert, ROS 1 (Melodic)
-        # CV related
-        # Quick Notes
         if args.section:
             print(f'Section: {args.section}')
             pages, sections = find_sections(onenote_app, notebooks, args.section)
