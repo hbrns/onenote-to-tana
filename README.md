@@ -35,7 +35,7 @@ a workaround.
 
     ```sh
     git clone https://github.com/hbrns/onenote-to-tana.git
-    cd onenote_to-tana
+    cd onenote-to-tana
     ```
 
 2. Install the requirements.
@@ -58,14 +58,14 @@ a workaround.
    for import into Tana, execute the convert script.
 
     ```bash
-    cd onenote_to-tana
+    cd onenote-to-tana
     poetry run python onenote-to-tana\convert_to_tif.py --user
     ```
 
-The `--user` argument will enable you to interactively select which
+The `--user` option will enable you to interactively select which
 notebook(s), section(s), or page(s) you like to convert.
 
-Use the `--help` argument for an overview on other options.
+Use the `--help` option for an overview on other options.
 
 ## Acknowledgements
 
