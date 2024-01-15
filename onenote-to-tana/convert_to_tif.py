@@ -22,9 +22,9 @@ def ui_handle_onenote_elements(onenote_app: Any, notebooks: Dict[str, ElementTre
                                sections: Optional[Dict[str, ElementTree.Element]] = None, 
                                pages: Optional[Dict[str, ElementTree.Element]] = None,
                                outfile: str = None):
-    if ui_handle_elements('pages', pages, ui_handle_pages): return
-    if ui_handle_elements('sections', sections, ui_handle_sections): return
-    if ui_handle_elements('notebooks', notebooks, ui_handle_notebooks): return
+    if ui_handle_elements('pages', pages, outfile, ui_handle_pages): return
+    if ui_handle_elements('sections', sections, outfile, ui_handle_sections): return
+    if ui_handle_elements('notebooks', notebooks, outfile, ui_handle_notebooks): return
 
 if __name__ == "__main__":
     narrowed = None
@@ -72,7 +72,7 @@ if __name__ == "__main__":
         else:
             sections = get_sections(onenote_app, notebooks)
 
-        if args.page: # fräsen Bodendecker Delivery
+        if args.page:
             pages = find_pages(onenote_app, onenote_elements, args.page)
             if not pages:
                 print(f'Provided pages did not match.')
@@ -83,14 +83,14 @@ if __name__ == "__main__":
 
         if args.user:
             if not narrowed:    # search is not narrowed
-                ui_handle_notebooks(onenote_app, notebooks, args.output)
+                ui_handle_notebooks(onenote_app, notebooks, outfile=args.output)
             else:               # search is narrowed
                 if 'notebook' == narrowed:
-                    ui_handle_onenote_elements(onenote_app, notebooks, args.output)
+                    ui_handle_onenote_elements(onenote_app, notebooks, outfile=args.output)
                 elif 'sections' == narrowed:
-                    ui_handle_onenote_elements(onenote_app, notebooks, sections, args.output)
+                    ui_handle_onenote_elements(onenote_app, notebooks, sections, outfile=args.output)
                 elif 'pages' == narrowed:
-                    ui_handle_onenote_elements(onenote_app, notebooks, sections, pages, args.output)
+                    ui_handle_onenote_elements(onenote_app, notebooks, sections, pages, outfile=args.output)
                 else:
                     print(f'Somehow we ended up here. Giving up.')
                     exit()
