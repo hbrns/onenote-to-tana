@@ -3,17 +3,17 @@ import locale
 import os
 import pytz
 import re
-import shutil
 import sys
 import tempfile
 import time
-from bs4 import BeautifulSoup, Tag, NavigableString
-from datetime import datetime
+from bs4 import BeautifulSoup, NavigableString, Tag
+from datetime import datetime, timezone
 from snowflake import SnowflakeGenerator
 from typing import Any, Dict, List, Tuple, Union
 
-# TIF - Tana Intermediate Format
-from tanatypes.tif import *
+from onenote.onenote import OneNotePageData
+from onenote.pages import process_page
+from tanatypes.tif import *     # TIF - Tana Intermediate Format
 
 DEBUG = False
 CHARSET = 'utf-8' 
@@ -59,9 +59,7 @@ def process_child(child: NavigableString) -> str:
     elif 'href' in str(child):
         href = child.get('href')
         style.append('URL')
-    for string in child.stripped_strings:
-        if string[0] not in [',', ';']:
-            text = text + ' '
+    for string in child:
         if style:
             if 'URL' in style:
                 text = text + f'[{string}]({href})'
@@ -70,6 +68,78 @@ def process_child(child: NavigableString) -> str:
         else:
             text = text + f'{string}'
     return text
+
+def process_list(tag: NavigableString, list_nodes: list, createdAt: int, summary: TanaIntermediateSummary, level: int = 0) -> list:
+    if isinstance(tag, Tag):
+        tag_name = tag.name.casefold()
+        if tag_name == 'ul':
+            for child in tag.children:
+                if level == 0:
+                    list_child = list_nodes
+                else:
+                    try:
+                        list_child = list_nodes[-1].children
+                    except IndexError:
+                        list_child = list_nodes
+                process_list(child, list_child, createdAt, summary, level + 1)
+
+        elif tag_name in ('li', 'p', 'h1', 'h2', 'h3', 'h4', 'h5'):
+            text = str()
+            for list_item in tag.children:
+                text += process_child(list_item)
+            name = compress_text(text)
+            child_node = TanaIntermediateNode(
+                uid=str(next(uid)), 
+                name=name, 
+                description='', 
+                children=[], 
+                refs=[], 
+                createdAt=createdAt, 
+                editedAt=int(time.time() * 1000.0), 
+                type=NodeType.NODE
+            )
+            summary.leafNodes += 1
+            summary.totalNodes += 1
+            list_nodes.append(child_node)
+
+        elif tag_name in ('div'):
+            # print(f'Ignore <ul> sub-tag: "{tag.name}"')
+            pass
+
+        elif tag_name in ('table', 'tr', 'td'):
+            print(f'Currently unsupported <ul> sub-tag: "{tag_name}"')
+
+        # Handle other tags
+        else:
+            # Handle unsupported tags gracefully
+            print(f'Unsupported <ul> sub-tag ({tag_name}): "{tag}" - {len(str(tag))}')
+
+    elif isinstance(tag, NavigableString):
+        # process the string
+        pass
+
+    return list_nodes
+
+def process_list_and_convert_to_node(tag: NavigableString, createdAt: int, summary: TanaIntermediateSummary) -> Tuple[int, list, bool]:
+    n = 1
+    list_nodes = []
+    has_list_items = False
+
+    contents = tag.contents[0]
+    if '\n' == contents:
+        contents = tag.contents[1]
+
+    if 'ul' == contents.name:
+        n = 1
+        has_list_items = False
+    else:
+        has_list_items = True
+        simmer = tag.find_all(True)
+        n = len(simmer) + 1
+        list_nodes = process_list(tag, list_nodes, createdAt, summary)
+
+    return n, list_nodes, has_list_items
+
 
 def process_and_convert_table(tag: NavigableString) -> Tuple[int, str, list]:
     table = []
@@ -289,31 +359,8 @@ def table_to_node(table: list, name: str, createdAt: int, supertag: TanaIntermed
     attributes = [{"name": (name if name != '' else str(index)), "count": 0} for index, name in enumerate(table[0])]
     return table_node, attributes
 
-def process_beginnings(title_str: str, date_str: str, time_str: str, language: str) -> TanaIntermediateNode:
-    # Combine the date and time into a single string
-    date_time_str = f"{date_str} {time_str}"
-    # Use a default character set 
-    # FIXME: get charset attribute from <head>
-    charset = CHARSET
-    # Compile the name of the locale
-    locale_name = f'{language}.{charset}'
-    # Store current locale
-    old_loc = locale.getlocale(locale.LC_TIME)
-    try:
-        # Set the LC_TIME locale category
-        locale.setlocale(locale.LC_TIME, locale_name)
-    except locale.Error as e:
-        print(f'ERROR: locale = "{locale_name} - {e}')
-        locale.setlocale(locale.LC_TIME, f'de.{charset}')   # TODO: make that a CLI option
-
-    # Convert the date and time string to a datetime object
-    date_time_obj = datetime.strptime(date_time_str, '%A, %d. %B %Y %H:%M')
-    # Localize the datetime object to the "GMT+1" timezone
-    date_time_obj = pytz.timezone(TIMEZONE).localize(date_time_obj)
-    # Convert the localized datetime object to a timestamp in milliseconds
-    timestamp_millis = int(date_time_obj.timestamp() * 1000.0)
-    # Switch back to previous locale
-    locale.setlocale(locale.LC_TIME, old_loc)
+def process_beginnings(page_data: OneNotePageData, title_str: str, date_str: str, time_str: str) -> TanaIntermediateNode:
+    from utilities.utils import date_in_milliseconds
     # Create a Node object from the first <p> element
     node = TanaIntermediateNode(
         uid=str(next(uid)), 
@@ -321,13 +368,13 @@ def process_beginnings(title_str: str, date_str: str, time_str: str, language: s
         description=f'{date_str}, {time_str}', 
         children=[], 
         refs=[], 
-        createdAt=timestamp_millis, 
-        editedAt=int(time.time() * 1000.0), 
+        createdAt=date_in_milliseconds(page_data.createdAt), 
+        editedAt=date_in_milliseconds(page_data.editedAt), 
         type=NodeType.NODE
     )
     return node
 
-def convert_onenote_page(html_file: str, html_images: Dict, summary: TanaIntermediateSummary, nodes: List[TanaIntermediateNode], attributes: List[TanaIntermediateAttribute], supertags: List[TanaIntermediateSupertag]) -> Tuple[TanaIntermediateSummary, List[TanaIntermediateNode], List[TanaIntermediateAttribute], List[TanaIntermediateSupertag]]:
+def convert_onenote_page(page_data: OneNotePageData, summary: TanaIntermediateSummary, nodes: List[TanaIntermediateNode], attributes: List[TanaIntermediateAttribute], supertags: List[TanaIntermediateSupertag]) -> Tuple[TanaIntermediateSummary, List[TanaIntermediateNode], List[TanaIntermediateAttribute], List[TanaIntermediateSupertag]]:
     top_level_node = None
     parent_node_current = None
     parent_node_previous = None
@@ -338,7 +385,7 @@ def convert_onenote_page(html_file: str, html_images: Dict, summary: TanaInterme
     time_str = str()
     title_str = str()
 
-    slurry = BeautifulSoup(html_file, 'html.parser')
+    slurry = BeautifulSoup(page_data.html_string, 'html.parser')
     solids = slurry.find_all(True)
 
     p = 1 # paragraph <p> counter
@@ -366,7 +413,7 @@ def convert_onenote_page(html_file: str, html_images: Dict, summary: TanaInterme
                     date_str = text
                 if 3 == p:
                     time_str = text
-                    top_level_node = process_beginnings(title_str, date_str, time_str, language)
+                    top_level_node = process_beginnings(page_data, title_str, date_str, time_str)
                     summary.topLevelNodes += 1
                     summary.totalNodes += 1
                     # Initialize the parent node
@@ -422,9 +469,10 @@ def convert_onenote_page(html_file: str, html_images: Dict, summary: TanaInterme
             image_nodes = []
             if not parent_node_current:
                 n = 1
-                print(f'ERROR: parent node went missing.')
+                if DEBUG:
+                    print(f'ERROR: parent node went missing.')
             else:
-                n, image_nodes, image_attributes = process_image_and_convert_to_node(tag, html_images, parent_node_current.createdAt, supertag_tbl, summary)
+                n, image_nodes, image_attributes = process_image_and_convert_to_node(tag, page_data.images, parent_node_current.createdAt, supertag_tbl, summary)
                 # as 'image_nodes' is a list and not a single node,
                 # use 'extend' instead of 'append' here
                 parent_node_current.children.extend(image_nodes)
@@ -435,7 +483,7 @@ def convert_onenote_page(html_file: str, html_images: Dict, summary: TanaInterme
                 #       If that is not intended, instead use:
                 # attributes = list(dict((attr['name'], attr) for attr in reversed(attributes)).values())[::-1]
                 attributes = list(dict((attr['name'], attr) for attr in attributes).values())
-                # Increment the summary attribute already done in
+                # Increment of the summary attribute already done in
                 # 'process_image_and_convert_to_node' method, skipping
 
         # Handle headlines
@@ -469,6 +517,51 @@ def convert_onenote_page(html_file: str, html_images: Dict, summary: TanaInterme
         elif tag_name in ('html', 'head', 'meta', 'link', 'body'):
             n = 1
 
+        # Handle (un)ordered lists
+        elif tag_name in ('ol', 'ul'):
+            list_nodes = []
+            n, list_nodes, has_items = process_list_and_convert_to_node(tag, parent_node_current.createdAt, summary)
+            parent_node_current.children.extend(list_nodes)
+            # Increment of the summary attribute already done in
+            # 'process_unorder_list_and_convert_to_node' method.
+
+        # Handle generic inline container
+        elif tag_name == 'span':
+            text = process_child(tag)
+            name = compress_text(text)
+            child_node = TanaIntermediateNode(
+                uid=str(next(uid)), 
+                name=name, 
+                description='', 
+                children=[], 
+                refs=[], 
+                createdAt=parent_node_current.createdAt, 
+                editedAt=int(time.time() * 1000.0), 
+                type=NodeType.NODE
+            )
+            parent_node_current.children.append(child_node)
+            summary.leafNodes += 1
+            summary.totalNodes += 1
+            n = 1
+
+        # Handle URLs
+        elif tag_name == 'a':
+            n, anchor = process_and_convert_anchor(tag)
+            name = compress_text(anchor)
+            child_node = TanaIntermediateNode(
+                uid=str(next(uid)), 
+                name=name, 
+                description='', 
+                children=[], 
+                refs=[], 
+                createdAt=parent_node_current.createdAt, 
+                editedAt=int(time.time() * 1000.0), 
+                type=NodeType.NODE
+            )
+            parent_node_current.children.append(child_node)
+            summary.leafNodes += 1
+            summary.totalNodes += 1
+
         # Handle other tags
         else:
             # Handle unsupported tags gracefully
@@ -479,8 +572,6 @@ def convert_onenote_page(html_file: str, html_images: Dict, summary: TanaInterme
     return summary, nodes, attributes, supertags
 
 def convert_pages_all(onenote_app: Any, pages: Dict, outfile: str = None) -> None:
-    from onenote.pages import process_page
-
     # Create summary
     summary = TanaIntermediateSummary(0, 0, 0, 0, 0, 0)
 
@@ -505,14 +596,13 @@ def convert_pages_all(onenote_app: Any, pages: Dict, outfile: str = None) -> Non
     # and turn those into a collection of 'tanatypes'.
     try:
         for page in pages.values():
-            html_string, html_images = process_page(
+            page_data = process_page(
                 onenote_app, 
                 directory_name, 
                 page
                 )
             summary, nodes, attributes, supertags = convert_onenote_page(
-                html_string, 
-                html_images, 
+                page_data, 
                 summary, 
                 nodes, 
                 attributes, 
