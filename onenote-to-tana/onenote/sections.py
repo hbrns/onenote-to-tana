@@ -42,7 +42,7 @@ def select_section(sections: Dict[str, ElementTree.Element], section_name: str) 
     return selected_section, all_sections
 
 def ui_handle_sections(onenote_app: Any, sections: Dict[str, ElementTree.Element], outfile: str):
-    print(f'Available section: {", ".join(sections.keys())}')
+    # print(f'Available section: {", ".join(sections.keys())}')
     selected_section, all_sections = select_section(sections, "notebooook")
     if not all_sections:
         sections = {selected_section: sections[selected_section]}
@@ -59,8 +59,8 @@ def ui_select_section(notebook: str, sections: Dict[str, ElementTree.Element]) -
     """
     Interactively select a section from the available sections.
     """
-    sections_str = ', '.join(sections.keys())
-    print(f'Available section in "{notebook}" notebook: {sections_str}')
+    # sections_str = ', '.join(sections.keys())
+    # print(f'Available section in "{notebook}" notebook: {sections_str}')
     all_sections = False
     if 'All' not in sections:
         all_sections = True
