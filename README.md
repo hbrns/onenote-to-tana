@@ -29,6 +29,8 @@ Therefore images that are part of an OneNote page can not be imported.
 You may _copy&paste_ an image into a Tana node after an import by hand as
 a workaround.
 
+Tables as list entries of (unordered) lists are currently not supported.
+
 ## Installation
 
 1. Clone the repository.
