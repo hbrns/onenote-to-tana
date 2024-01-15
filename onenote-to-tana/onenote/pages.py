@@ -7,6 +7,7 @@ from prompt_toolkit.completion import WordCompleter
 from typing import Any, Dict, List, Tuple
 from xml.etree import ElementTree
 
+from onenote.onenote import OneNotePageData
 from utilities.utils import safe_str, extract_mht_contents
 
 def get_pages(onenote_app: Any, section: ElementTree.Element) -> Dict[str, ElementTree.Element]:
@@ -18,7 +19,10 @@ def get_pages(onenote_app: Any, section: ElementTree.Element) -> Dict[str, Eleme
 
 def select_page(pages: Dict[str, ElementTree.Element], section_name: str) -> Tuple[str, bool]:
     pages_str = ', '.join(pages.keys())
-    print(f'Available pages in section "{section_name}": {pages_str}')
+    if section_name:
+        print(f'Available pages in section "{section_name}": {pages_str}')
+    else:
+        print(f'Available pages in section: {pages_str}')
     all_pages = 'All' not in pages
     if all_pages:
         pages["All"] = None
@@ -33,8 +37,8 @@ def select_page(pages: Dict[str, ElementTree.Element], section_name: str) -> Tup
     return selected_page, all_pages
 
 def ui_handle_pages(onenote_app: Any, pages: Dict[str, ElementTree.Element], outfile: str):
-    print(f'Available pages: {", ".join(pages.keys())}')
-    selected_page, all_pages = select_page(pages, "some section")
+    # print(f'Available pages: {", ".join(pages.keys())}')
+    selected_page, all_pages = select_page(pages, None)
     if not all_pages:
         pages = {selected_page: pages[selected_page]}
     # for page in pages.values():
@@ -82,7 +86,7 @@ def find_page_in_notebook(onenote_app: Any, page_id: str) -> Tuple[ElementTree.E
                     return notebook, section
     return None, None
 
-def process_page(onenote_app: Any, directory: str, page: ElementTree.Element) -> Tuple[str, Dict[str, str]]:
+def process_page(onenote_app: Any, directory: str, page: ElementTree.Element) -> OneNotePageData:
     import os
 
     # print(f'page attributes: {page.attrib}')
@@ -100,11 +104,15 @@ def process_page(onenote_app: Any, directory: str, page: ElementTree.Element) ->
     section_name = section.get('name')
     page_name = page.get("name")
 
+    created_at = page.get("dateTime")
+    edited_at = page.get("lastModifiedTime")
+
     # Create a file in the directory
     file_name = f'{safe_str(page_name)}.mht'
     file_path = os.path.join(directory, file_name)
 
-    print(f'  > {page_name}, created at: {page.get("dateTime")}, edited at: {page.get("lastModifiedTime")}, {notebook_name}/{section_name} {file_path}')
+    # print(f'  > {page_name}, created at: {created_at}, edited at: {edited_at}, {notebook_name}/{section_name} {file_path}')
+    print(f'> Page: "{page_name}", from "{notebook_name}" notebook section "{section_name}"')
 
     # Get the content of the page, as MHT
     onenote_app.Publish(page_id, file_path, win32.constants.pfMHTML, "")
@@ -112,8 +120,17 @@ def process_page(onenote_app: Any, directory: str, page: ElementTree.Element) ->
     # Extract the contents of the Microsoft Hypertext Archive (MHT) file. 
     html, images = extract_mht_contents(file_path)
 
-    # TODO: handle notebook_name, section_name, page_name, createdAt, and editedAt
-    return html, images
+    page_data = OneNotePageData(
+        notebook_name, 
+        section_name,
+        page_name,
+        created_at,
+        edited_at,
+        sub_page,
+        html,
+        images
+        )
+    return page_data
 
 def handle_pages_all(onenote_app: Any, pages: Dict, outfile: str) -> None:
     from onenote.convert import convert_pages_all
