@@ -9,22 +9,32 @@ from string import printable
 from typing import Dict, Tuple
 
 # ISO 8601 date and time common format
-def iso8601(date_string: str):
+def iso8601(date_string: str) -> datetime:
     # To read a date-time string in ISO 8601 format:
     # date_string = "2023-12-26T14:21:09.000Z"
     date_object = datetime.strptime(date_string, "%Y-%m-%dT%H:%M:%S.%fZ")
 
     # Now date_object is a datetime object.
-    print(date_object)
+    # print(date_object)
 
-    # To write a date-time string in ISO 8601 format:
-    # Let's assume we have a datetime object.
-    date_object = datetime.now(timezone.utc)
-
-    # Now we convert it to a string in ISO 8601 format.
-    date_string = date_object.strftime("%Y-%m-%dT%H:%M:%S.%fZ")[:-3] + "Z"
-    print(date_string)
+    # # To write a date-time string in ISO 8601 format:
+    # # Let's assume we have a datetime object.
+    # date_object = datetime.now(timezone.utc)
+    #
+    # # Now we convert it to a string in ISO 8601 format.
+    # date_string = date_object.strftime("%Y-%m-%dT%H:%M:%S.%fZ")[:-3] + "Z"
+    # print(date_string)
     return date_object
+
+def date_in_milliseconds(date_iso8601: str) -> int:
+    date_object = iso8601(date_iso8601)
+    # Convert the datetime object to UTC
+    date_object = date_object.replace(tzinfo=timezone.utc)
+    # Get the timestamp (seconds since the Unix epoch)
+    timestamp = date_object.timestamp()
+    # Convert to milliseconds and return
+    return int(timestamp * 1000.0)
+
 
 def safe_str(name: str) -> str:
     """
@@ -46,7 +56,6 @@ def safe_str(name: str) -> str:
     # a space, period, hyphen, or underline
     # return re.sub(r"^[ .-_]+|[ .-_]+$", "", safe_name)
     ret = re.sub(r"^[ .-_]+|[ .-_]+$", "", f'{safe_name}')
-    print(f'{name} -> "{safe_name}" -> "{ret}"')
     return "noname" if ret == "" else ret
 
 def check_substring_in_keys(dictionary: Dict, substring: str) -> Dict:
