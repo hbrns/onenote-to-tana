@@ -304,18 +304,21 @@ def process_image_and_convert_to_node(tag: NavigableString, images: Dict, create
 
 def table_to_node(table: list, name: str, createdAt: int, supertag: TanaIntermediateSupertag, summary: TanaIntermediateSummary) -> Tuple[TanaIntermediateNode, List[Dict[str, Union[str, int]]]]:
     # Create table node
-    table_node = TanaIntermediateNode(uid=str(next(uid)), 
-        name=name, 
+    table_node = TanaIntermediateNode(
+        uid=str(next(uid)), 
+        # Use "OneNote Table" if the first cell of the first row is empty or None
+        name="OneNote Table" if not table[0][0] else table[0][0],
         children=[], 
         createdAt=createdAt,
         editedAt=int(time.time() * 1000.0),
-        type=NodeType.NODE.value,
-        supertags=[supertag.uid])
+        type=NodeType.NODE,
+        supertags=[supertag.uid]
+        )
     for i, row in enumerate(table):
         if i == 0:  # Heading row
             heading_nodes = []
-            for index, cell in enumerate(row):
-                name = cell if cell != '' else str(index)
+            for index, cell in enumerate(row[1:]):   # Start from the second cell
+                name = cell if cell != '' else str(index + 1)
                 node = TanaIntermediateNode(
                     uid=str(next(uid)), 
                     name=name, 
@@ -328,13 +331,13 @@ def table_to_node(table: list, name: str, createdAt: int, supertag: TanaIntermed
         else:  # Data row
             row_node = TanaIntermediateNode(
                 uid=str(next(uid)), 
-                name=chr(64 + i), 
+                name=row[0],    # Use the first cell of the row as the name
                 children=[], 
                 createdAt=createdAt,
                 editedAt=int(time.time() * 1000.0),
                 type=NodeType.NODE
             )
-            for j, cell in enumerate(row):
+            for j, cell in enumerate(row[1:]):  # Start from the second cell
                 cell_node = TanaIntermediateNode(
                     uid=str(next(uid)), 
                     name=cell, 
@@ -356,7 +359,7 @@ def table_to_node(table: list, name: str, createdAt: int, supertag: TanaIntermed
             table_node.children.append(row_node)
             summary.leafNodes += 1
             summary.totalNodes += 1
-    attributes = [{"name": (name if name != '' else str(index)), "count": 0} for index, name in enumerate(table[0])]
+    attributes = [{"name": (name if name != '' else str(index + 1)), "count": 0} for index, name in enumerate(table[0][1:])]  # Start also from the second cell
     return table_node, attributes
 
 def process_beginnings(page_data: OneNotePageData, title_str: str, date_str: str, time_str: str) -> TanaIntermediateNode:
@@ -374,7 +377,7 @@ def process_beginnings(page_data: OneNotePageData, title_str: str, date_str: str
     )
     return node
 
-def convert_onenote_page(page_data: OneNotePageData, summary: TanaIntermediateSummary, nodes: List[TanaIntermediateNode], attributes: List[TanaIntermediateAttribute], supertags: List[TanaIntermediateSupertag]) -> Tuple[TanaIntermediateSummary, List[TanaIntermediateNode], List[TanaIntermediateAttribute], List[TanaIntermediateSupertag]]:
+def convert_onenote_page(page_data: OneNotePageData, summary: TanaIntermediateSummary, nodes: List[TanaIntermediateNode], attributes: List[TanaIntermediateAttribute], supertags: List[TanaIntermediateSupertag], superpage: TanaIntermediateNode) -> Tuple[TanaIntermediateSummary, List[TanaIntermediateNode], List[TanaIntermediateAttribute], List[TanaIntermediateSupertag]]:
     top_level_node = None
     parent_node_current = None
     parent_node_previous = None
@@ -414,13 +417,24 @@ def convert_onenote_page(page_data: OneNotePageData, summary: TanaIntermediateSu
                 if 3 == p:
                     time_str = text
                     top_level_node = process_beginnings(page_data, title_str, date_str, time_str)
-                    summary.topLevelNodes += 1
                     summary.totalNodes += 1
                     # Initialize the parent node
                     parent_node_current = top_level_node
                     parent_node_previous = top_level_node
                     # Append the Node object to the list of nodes
-                    nodes.append(top_level_node)
+                    if page_data.isSubPage:
+                        if superpage:
+                            last_child = superpage.children[-1]  # Get the last child node
+                            last_child.description = 'Imported into Tana with <b><i>onenote-to-tana</i></b>, including subpages below.'
+                            last_child.children.append(top_level_node) 
+                            summary.leafNodes += 1
+                        else:
+                            nodes.append(top_level_node)
+                            summary.topLevelNodes += 1
+                    else:
+                        superpage = top_level_node
+                        summary.topLevelNodes += 1
+                        nodes.append(top_level_node)
                 p += 1
                 i += n
                 continue
@@ -569,7 +583,7 @@ def convert_onenote_page(page_data: OneNotePageData, summary: TanaIntermediateSu
             n = 1
         i += n
     
-    return summary, nodes, attributes, supertags
+    return summary, nodes, attributes, supertags, superpage
 
 def convert_pages_all(onenote_app: Any, pages: Dict, outfile: str = None) -> None:
     # Create summary
@@ -595,18 +609,20 @@ def convert_pages_all(onenote_app: Any, pages: Dict, outfile: str = None) -> Non
     # process the MHT to extract the HTML and images from it
     # and turn those into a collection of 'tanatypes'.
     try:
+        superpage = None
         for page in pages.values():
             page_data = process_page(
                 onenote_app, 
                 directory_name, 
                 page
                 )
-            summary, nodes, attributes, supertags = convert_onenote_page(
+            summary, nodes, attributes, supertags, superpage = convert_onenote_page(
                 page_data, 
                 summary, 
                 nodes, 
                 attributes, 
-                supertags
+                supertags,
+                superpage
                 )
     finally:
         if not DEBUG:
