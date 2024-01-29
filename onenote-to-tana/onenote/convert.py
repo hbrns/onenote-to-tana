@@ -331,7 +331,7 @@ def table_to_node(table: list, name: str, createdAt: int, supertag: TanaIntermed
         else:  # Data row
             row_node = TanaIntermediateNode(
                 uid=str(next(uid)), 
-                name=row[0],    # Use the first cell of the row as the name
+                name=row[0] if row[0] != '' else chr(64 + i + 1),    # Use the first cell of the row as the name
                 children=[], 
                 createdAt=createdAt,
                 editedAt=int(time.time() * 1000.0),
